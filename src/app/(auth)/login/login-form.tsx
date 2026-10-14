@@ -30,9 +30,13 @@ export function LoginForm() {
   const onSubmit = (data: LoginInput) => {
     setServerError(null);
     startTransition(async () => {
-      const res = await loginAction(data);
-      if (res?.error) {
-        setServerError(res.error);
+      try {
+        const res = await loginAction(data);
+        if (res?.error) {
+          setServerError(res.error);
+        }
+      } catch (err: unknown) {
+        setServerError((err as Error)?.message || "Failed to log in. Please try again.");
       }
     });
   };

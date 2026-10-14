@@ -8,9 +8,14 @@ declare global {
 }
 
 function resolveDatabaseUrl(): string {
-  const rawUrl = process.env.DATABASE_URL || "file:./dev.db";
+  const isVercel = !!process.env.VERCEL;
+  const rawUrl = process.env.DATABASE_URL || (isVercel ? "file:/tmp/dev.db" : "file:./dev.db");
   if (rawUrl.startsWith("file:")) {
     const rawPath = rawUrl.replace(/^file:/, "");
+    if (isVercel) {
+      const filename = path.basename(rawPath) || "dev.db";
+      return `file:/tmp/${filename}`;
+    }
     if (!path.isAbsolute(rawPath)) {
       const absolutePath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), rawPath).replace(/\\/g, "/");
       return `file:${absolutePath}`;

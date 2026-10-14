@@ -41,41 +41,41 @@ export default async function DashboardPage() {
     recentActivity,
     workspacesWithCounts,
   ] = await Promise.all([
-    prisma.prompt.count({ where: { isDeleted: false } }),
-    prisma.folder.count(),
-    prisma.category.count(),
-    prisma.workspace.count({ where: { isArchived: false } }),
-    prisma.prompt.count({ where: { isFavorite: true, isDeleted: false } }),
-    prisma.prompt.count({ where: { isPinned: true, isDeleted: false } }),
-    prisma.prompt.count({ where: { isArchived: true, isDeleted: false } }),
-    prisma.promptVersion.count(),
+    prisma.prompt.count({ where: { isDeleted: false } }).catch(() => 0),
+    prisma.folder.count().catch(() => 0),
+    prisma.category.count().catch(() => 0),
+    prisma.workspace.count({ where: { isArchived: false } }).catch(() => 0),
+    prisma.prompt.count({ where: { isFavorite: true, isDeleted: false } }).catch(() => 0),
+    prisma.prompt.count({ where: { isPinned: true, isDeleted: false } }).catch(() => 0),
+    prisma.prompt.count({ where: { isArchived: true, isDeleted: false } }).catch(() => 0),
+    prisma.promptVersion.count().catch(() => 0),
     prisma.prompt.findMany({
       where: { isDeleted: false, copyCount: { gt: 0 } },
       orderBy: { copyCount: "desc" },
       take: 5,
       include: { folder: true },
-    }),
+    }).catch(() => []),
     prisma.prompt.findMany({
       where: { isDeleted: false },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: { folder: true },
-    }),
+    }).catch(() => []),
     prisma.prompt.findMany({
       where: { isDeleted: false },
       orderBy: { updatedAt: "desc" },
       take: 5,
       include: { folder: true },
-    }),
+    }).catch(() => []),
     prisma.activityLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 6,
-    }),
+    }).catch(() => []),
     prisma.workspace.findMany({
       where: { isArchived: false },
       select: { name: true, _count: { select: { prompts: true } } },
       take: 6,
-    }),
+    }).catch(() => []),
   ]);
 
   // Compute 7-day creation trend from actual SQLite records
@@ -88,7 +88,7 @@ export default async function DashboardPage() {
       createdAt: { gte: sevenDaysAgo },
     },
     select: { createdAt: true },
-  });
+  }).catch(() => []);
 
   const trendMap = new Map<string, number>();
   for (let i = 6; i >= 0; i--) {

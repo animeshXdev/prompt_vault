@@ -18,6 +18,9 @@ const ALLOWED_MIME_TYPES = new Set([
 export const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
 
 export function getUploadDirectory(): string {
+  if (process.env.VERCEL) {
+    return "/tmp/uploads";
+  }
   const customPath = process.env.UPLOAD_DIR || "./data/uploads";
   return path.resolve(/*turbopackIgnore: true*/ process.cwd(), customPath);
 }

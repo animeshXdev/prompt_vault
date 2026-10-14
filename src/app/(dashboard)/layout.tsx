@@ -23,10 +23,10 @@ export default async function DashboardLayout({
 
   // Fetch real-time live counts for sidebar badges
   const [favoritesCount, pinnedCount, archiveCount, trashCount] = await Promise.all([
-    prisma.prompt.count({ where: { isFavorite: true, isDeleted: false } }),
-    prisma.prompt.count({ where: { isPinned: true, isDeleted: false } }),
-    prisma.prompt.count({ where: { isArchived: true, isDeleted: false } }),
-    prisma.prompt.count({ where: { isDeleted: true } }),
+    prisma.prompt.count({ where: { isFavorite: true, isDeleted: false } }).catch(() => 0),
+    prisma.prompt.count({ where: { isPinned: true, isDeleted: false } }).catch(() => 0),
+    prisma.prompt.count({ where: { isArchived: true, isDeleted: false } }).catch(() => 0),
+    prisma.prompt.count({ where: { isDeleted: true } }).catch(() => 0),
   ]);
 
   const counts: Record<string, number> = {
