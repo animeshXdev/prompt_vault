@@ -21,7 +21,11 @@ function resolveDatabaseUrl(): string {
 
 export function createPrismaClient(): PrismaClient {
   const dbUrl = resolveDatabaseUrl();
-  const adapter = new PrismaLibSql({ url: dbUrl });
+  const authToken = process.env.TURSO_AUTH_TOKEN || process.env.DATABASE_AUTH_TOKEN;
+  const adapter = new PrismaLibSql({
+    url: dbUrl,
+    ...(authToken ? { authToken } : {}),
+  });
   const client = new PrismaClient({ adapter });
   return client;
 }
