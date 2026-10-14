@@ -1,0 +1,381 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Administrator {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+  sessions     Session[]
+}
+
+model Session {
+  id           String        @id @default(cuid())
+  token        String        @unique
+  adminId      String
+  admin        Administrator @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime      @default(now())
+  lastActiveAt DateTime      @default(now())
+
+  @@index([token])
+  @@index([adminId])
+  @@index([expiresAt])
+}
+
+model ApplicationSettings {
+  id                    String   @id @default("default")
+  appName               String   @default("PromptVault")
+  defaultWorkspaceId    String?
+  defaultAiPlatform     String?  @default("openai")
+  defaultCategoryId     String?
+  editorFontSize        Int      @default(14)
+  autosaveInterval      Int      @default(1000)
+  defaultEditorMode     String   @default("split") // 'split', 'editor', 'preview'
+  markdownPreviewTheme  String   @default("github")
+  sessionExpirationDays Int      @default(30)
+  storagePath           String   @default("./data/uploads")
+  themePreference       String   @default("system")
+  updatedAt             DateTime @updatedAt
+}
+
+model Workspace {
+  id                 String              @id @default(cuid())
+  name               String
+  slug               String              @unique
+  description        String?
+  projectType        String? // e.g. 'Next.js Development', 'API Development', etc.
+  technologyStack    String?
+  customInstructions String?
+  masterPrompt       String?
+  isArchived         Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  settings           WorkspaceSettings?
+  folders            Folder[]
+  prompts            Prompt[]
+  templates          PromptTemplate[]
+  attachments        Attachment[]
+  masterPrompts      MasterPrompt[]
+  reusableRules      ReusableRule[]
+  compositions       PromptComposition[]
+
+  @@index([slug])
+  @@index([isArchived])
+}
+
+model WorkspaceSettings {
+  id              String    @id @default(cuid())
+  workspaceId     String    @unique
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  defaultAiModel  String?
+  customRulesJson String?
+  metadataJson    String?
+  updatedAt       DateTime  @updatedAt
+}
+
+model Folder {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  color       String?
+  icon        String?
+  parentId    String?
+  parent      Folder?   @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Folder[]  @relation("FolderHierarchy")
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  prompts     Prompt[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([parentId])
+  @@index([workspaceId])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  color       String?
+  icon        String?
+  prompts     Prompt[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Tag {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  color      String?
+  promptTags PromptTag[]
+  createdAt  DateTime    @default(now())
+}
+
+model PromptTag {
+  id       String @id @default(cuid())
+  promptId String
+  prompt   Prompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  tagId    String
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([promptId, tagId])
+  @@index([promptId])
+  @@index([tagId])
+}
+
+model Prompt {
+  id              String            @id @default(cuid())
+  title           String
+  description     String?
+  content         String
+  notes           String?
+  isFavorite      Boolean           @default(false)
+  isPinned        Boolean           @default(false)
+  isArchived      Boolean           @default(false)
+  isDeleted       Boolean           @default(false)
+  deletedAt       DateTime?
+  status          String            @default("active") // 'draft', 'active', 'archived'
+  copyCount       Int               @default(0)
+  targetPlatform  String? // OpenAI, Anthropic, Gemini, etc.
+  targetModel     String?
+  estimatedTokens Int               @default(0)
+  folderId        String?
+  folder          Folder?           @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  categoryId      String?
+  category        Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  workspaceId     String?
+  workspace       Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  promptTags      PromptTag[]
+  versions        PromptVersion[]
+  attachments     Attachment[]
+  usageEvents     PromptUsageEvent[]
+  aiTestResults   AITestResult[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([folderId])
+  @@index([categoryId])
+  @@index([workspaceId])
+  @@index([isFavorite])
+  @@index([isPinned])
+  @@index([isArchived])
+  @@index([isDeleted])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model PromptVersion {
+  id            String   @id @default(cuid())
+  promptId      String
+  prompt        Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  title         String
+  content       String
+  notes         String?
+  changeNotes   String?
+  isStable      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([promptId])
+  @@index([versionNumber])
+}
+
+model MasterPrompt {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  content     String
+  isGlobal    Boolean    @default(true)
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  isActive    Boolean    @default(true)
+  version     Int        @default(1)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([isGlobal])
+  @@index([workspaceId])
+}
+
+model ReusableRule {
+  id          String     @id @default(cuid())
+  title       String
+  category    String // 'coding', 'security', 'architecture', 'ui_ux', 'testing', 'formatting'
+  content     String
+  priority    Int        @default(0)
+  isEnabled   Boolean    @default(true)
+  isGlobal    Boolean    @default(true)
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  version     Int        @default(1)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([category])
+  @@index([priority])
+  @@index([workspaceId])
+  @@index([isGlobal])
+}
+
+model PromptTemplate {
+  id              String             @id @default(cuid())
+  title           String
+  description     String?
+  templateContent String
+  workspaceId     String?
+  workspace       Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  isArchived      Boolean            @default(false)
+  variables       TemplateVariable[]
+  presets         TemplatePreset[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([workspaceId])
+  @@index([isArchived])
+}
+
+model TemplateVariable {
+  id           String         @id @default(cuid())
+  templateId   String
+  template     PromptTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  name         String
+  label        String
+  description  String?
+  fieldType    String         @default("text") // 'text', 'multiline', 'dropdown'
+  defaultValue String?
+  isRequired   Boolean        @default(false)
+  optionsJson  String?
+  orderIndex   Int            @default(0)
+
+  @@index([templateId])
+  @@index([orderIndex])
+}
+
+model TemplatePreset {
+  id         String         @id @default(cuid())
+  templateId String
+  template   PromptTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  name       String
+  valuesJson String // serialized JSON object { [varName]: value }
+  createdAt  DateTime       @default(now())
+
+  @@index([templateId])
+}
+
+model PromptComposition {
+  id                 String             @id @default(cuid())
+  title              String
+  description        String?
+  workspaceId        String?
+  workspace          Workspace?         @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  blocks             CompositionBlock[]
+  cachedCombinedText String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([workspaceId])
+}
+
+model CompositionBlock {
+  id            String            @id @default(cuid())
+  compositionId String
+  composition   PromptComposition @relation(fields: [compositionId], references: [id], onDelete: Cascade)
+  blockType     String // 'global_master', 'workspace_rule', 'saved_prompt', 'reusable_rule', 'custom_text', 'output_format'
+  referenceId   String?
+  title         String
+  content       String
+  orderIndex    Int
+  isEnabled     Boolean           @default(true)
+
+  @@index([compositionId])
+  @@index([orderIndex])
+}
+
+model Attachment {
+  id           String     @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  fileSize     Int
+  storagePath  String
+  promptId     String?
+  prompt       Prompt?    @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  workspaceId  String?
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@index([promptId])
+  @@index([workspaceId])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  action      String
+  entityType  String
+  entityId    String?
+  detailsJson String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+model PromptUsageEvent {
+  id        String   @id @default(cuid())
+  promptId  String
+  prompt    Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  eventType String // 'copy', 'view', 'compose', 'export', 'test'
+  format    String? // 'markdown', 'plaintext'
+  createdAt DateTime @default(now())
+
+  @@index([promptId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model AITestResult {
+  id               String   @id @default(cuid())
+  promptId         String?
+  prompt           Prompt?  @relation(fields: [promptId], references: [id], onDelete: SetNull)
+  provider         String
+  model            String
+  inputPrompt      String
+  outputResponse   String
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  estimatedCost    Float?
+  latencyMs        Int?
+  rating           Int? // 1-5
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  @@index([promptId])
+  @@index([provider])
+  @@index([createdAt])
+}
+
+model AIProviderConfiguration {
+  id              String   @id @default(cuid())
+  provider        String   @unique
+  isEnabled       Boolean  @default(false)
+  encryptedApiKey String?
+  baseUrl         String?
+  defaultModel    String?
+  modelsJson      String?
+  pricingJson     String?
+  updatedAt       DateTime @updatedAt
+}
